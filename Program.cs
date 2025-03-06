@@ -70,6 +70,8 @@ public interface IGrading
 
     void ShowBestAndWorstStudent();
 
+    void GradeStats();
+
 }
 
 public class GradeSystem : IGrading
@@ -199,6 +201,37 @@ public class GradeSystem : IGrading
         Console.WriteLine($"Худший студент по среднему баллу: {worstStudent.Name}  {worstStudent.GetAverageGrade()}");
 
     }
+
+    public void GradeStats()
+    {
+         //Динамическая статистика оценок
+        // * - Общее количество оценок
+        // * - Средний балл по всей системе
+        // * - Количество каждой оценки
+        // * - Самый популярный и самый редкий балл   
+
+        var grades = students.Values.SelectMany(g=>g.Grades.Values.SelectMany(g => g).Select(g => (int)g)).ToList();
+        Console.WriteLine($"Общее количество оценок: {grades.Count()}");
+        Console.WriteLine($"Средний балл по всей системе: {grades.Average()}");
+        Console.WriteLine("Количество каждой оценки:");
+        Dictionary<object,int> gradesCount = new Dictionary<object,int>();
+        foreach (var grade in Enum.GetValues(typeof(GradeType)))
+        {
+            gradesCount[grade] = grades.Count(g => g == grade.GetHashCode());
+            Console.WriteLine($"{grade}: {gradesCount[grade]}");
+
+        }
+
+        var topGrades = gradesCount.OrderByDescending(g=>g.Value);
+        Console.WriteLine($"Самый популярный балл: {topGrades.First().Key} - {topGrades.First().Value}");
+        Console.WriteLine($"Самый редкий балл: {topGrades.Last().Key} - {topGrades.Last().Value}");
+
+
+
+
+
+
+    }
 }
 
 public class NotificationSystem
@@ -232,7 +265,6 @@ class Program
                     Console.Write("Введите имя студента: ");
                     gradeSystem.AddStudent(Console.ReadLine());
                     break;
-
                 case "2":
                     Console.Write("Введите имя студента: ");
                     string studentName = Console.ReadLine();
@@ -246,13 +278,11 @@ class Program
                         Console.WriteLine("Некорректный ввод");
                     }
                     break;
-
                 case "3":
                     Console.Write("Введите имя студента: ");
                     string studentName3 = Console.ReadLine();
                     gradeSystem.ShowStudentGrades(studentName3);
                     break;
-
                 case "4":
                     gradeSystem.ShowTopStudents();
                     break;
@@ -282,6 +312,9 @@ class Program
                 case "9":
                     gradeSystem.ShowBestAndWorstStudent();
                     break;
+                case "10":
+                    gradeSystem.GradeStats();
+                    break;
                 case "0":
                     return;
                 default:
@@ -302,6 +335,7 @@ class Program
             Console.WriteLine("7. Переименовать студента");
             Console.WriteLine("8. Удалить курс");
             Console.WriteLine("9. Показать лучших и худших студентов");
+            Console.WriteLine("9. Динамическая статистика оценок");
             Console.WriteLine("0. Выход");
             Console.Write("Выберите опцию: "); 
         }

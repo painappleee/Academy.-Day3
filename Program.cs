@@ -59,7 +59,6 @@ public interface IGrading
 
     event Action<string, string, GradeType> GradeAdded;
 
-
     void RemoveStudent(string name);
 
     void FindStudentWithGrade(GradeType grade);
@@ -71,6 +70,28 @@ public interface IGrading
     void ShowBestAndWorstStudent();
 
     void GradeStats();
+
+    void SaveGradesToFile(string filePath = "grades_data.txt");
+    void LoadGradesFromFile(string filePath = "grades_data.txt");
+    void SaveStudentsToFile(string filePath = "students_data.txt");
+    void LoadStudentsFromFile(string filePath = "students_data.txt");
+    void SaveReportToFile(string filePath = "report.txt");
+
+    // Записать студента в конец файла
+    void AppendStudentToFile(string name, string filePath = "students_data.txt");
+
+    // Записать оценку в конец файла
+    void AppendGradeToFile(string studentName, string course, GradeType grade, string filePath = "grades_data.txt");
+
+    // Очистка данных из файла
+    void ClearDataFiles(string filePath);
+
+    // Копирование данных в резервные файлы (students_backup)
+    void BackupDataFiles(string filePath);
+
+    // Поиск заданного студента в файле: подтверждение его нахождения и вывод всех его оценок
+    void FindStudentInFile(string studentName, string filePathStudents = "students_data.txt", string filePathGrades = "grades_data.txt");
+
 
 }
 
@@ -109,7 +130,7 @@ public class GradeSystem : IGrading
 
         if (!students.ContainsKey(studentName))
         {
-            Console.WriteLine("Студент не найден!");
+            Console.WriteLine("[Ошибка] Студент не найден!");
             return;
         }
 
@@ -142,7 +163,7 @@ public class GradeSystem : IGrading
     {
         if (!students.ContainsKey(name))
         {
-            Console.WriteLine($"Студент {name} не найден");
+            Console.WriteLine($"[Ошибка] Студент {name} не найден");
             return;
         }
         students.Remove(name);
@@ -152,6 +173,7 @@ public class GradeSystem : IGrading
 
     public void FindStudentWithGrade(GradeType grade)
     {
+        Console.WriteLine($"Студенты с оценкой: {grade}");
         foreach (Student s in students.Values) 
         {
             var grades = s.Grades.Values.SelectMany(g => g).ToList();
@@ -166,13 +188,13 @@ public class GradeSystem : IGrading
     {
         if (students.ContainsKey(newName))
         {
-            Console.WriteLine($"Невозможно переименовать. Студент {newName} уже существует.");
+            Console.WriteLine($"[Ошибка] Невозможно переименовать. Студент {newName} уже существует.");
             return;
         }
 
         if (!students.ContainsKey(oldName))
         {
-            Console.WriteLine($"Студент {oldName} не найден");
+            Console.WriteLine($"[Ошибка] Студент {oldName} не найден");
             return;
         }
         students[oldName].RenameStudent(newName);
@@ -201,14 +223,8 @@ public class GradeSystem : IGrading
         Console.WriteLine($"Худший студент по среднему баллу: {worstStudent.Name}  {worstStudent.GetAverageGrade()}");
 
     }
-
     public void GradeStats()
     {
-         //Динамическая статистика оценок
-        // * - Общее количество оценок
-        // * - Средний балл по всей системе
-        // * - Количество каждой оценки
-        // * - Самый популярный и самый редкий балл   
 
         var grades = students.Values.SelectMany(g=>g.Grades.Values.SelectMany(g => g).Select(g => (int)g)).ToList();
         Console.WriteLine($"Общее количество оценок: {grades.Count()}");
@@ -225,12 +241,113 @@ public class GradeSystem : IGrading
         var topGrades = gradesCount.OrderByDescending(g=>g.Value);
         Console.WriteLine($"Самый популярный балл: {topGrades.First().Key} - {topGrades.First().Value}");
         Console.WriteLine($"Самый редкий балл: {topGrades.Last().Key} - {topGrades.Last().Value}");
+    }
 
+    public void SaveGradesToFile(string filePath = "grades_data.txt")
+    {
+        using (StreamWriter writer = new StreamWriter(filePath))
+        {
+            foreach (var student in students.Values)
+            {
+                foreach (var course in student.Grades)
+                {
+                    foreach (var grade in course.Value)
+                    {
+                        writer.WriteLine($"{student.Name}, {course.Key}, {grade}");
+                    }
+                }
+            }
+        }
+        Console.WriteLine($"Оценки сохранены в файл {filePath}");
+    }
+    public void LoadGradesFromFile(string filePath = "grades_data.txt")
+    {
+        if (!File.Exists(filePath))
+        {
+            Console.WriteLine("[Ошибка] Файл с оценками не найден");
+            return;
+        }
 
+        using (StreamReader reader = new StreamReader(filePath))
+        {
+            string line;
+            while ((line = reader.ReadLine()) != null)
+            {
+                string[] parts = line.Split(", ");
+                if (parts.Length == 3 && Enum.TryParse(parts[2], out GradeType grade))
+                {
+                    AddGrade(parts[0], parts[1], grade);
+                }
+            }
+        }
+        Console.WriteLine($"Оценки загружены из файла {filePath}");
+    }
+    public void SaveStudentsToFile(string filePath = "students_data.txt")
+    {
+        using (StreamWriter writer = new(filePath))
+        {
+            foreach (var student in students.Keys)
+            {
+                writer.WriteLine(student);
+            }
+        }
+        Console.WriteLine($"Студенты сохранены в файл {filePath}");
+    }
+    public void LoadStudentsFromFile(string filePath = "students_data.txt")
+    {
+        if (!File.Exists(filePath))
+        {
+            Console.WriteLine("[Ошибка] Файл со студентами не найден");
+            return;
+        }
 
+        using (StreamReader reader = new(filePath))
+        {
+            string line;
+            while ((line = reader.ReadLine()) != null)
+            {
+                if (!string.IsNullOrEmpty(line))
+                    AddStudent(line);
+            }
+        }
+        Console.WriteLine($"Студенты загружены из файла {filePath}");
+    }
+    public void SaveReportToFile(string filePath = "report.txt")
+    {
+        using (StreamWriter writer = new(filePath))
+        {
+            writer.WriteLine("Отчёт по оценкам студентов");
 
+            foreach (var student in students.Values)
+            {
+                writer.WriteLine($"\nИмя студента: {student.Name}");
+                foreach (var course in student.Grades)
+                {
+                    writer.WriteLine($"- {course.Key}: {string.Join(", ", course.Value)}");
+                }
+            }
+        }
+        Console.WriteLine($"Отчёт сохранён в файл {filePath}");
+    }
 
+    public void AppendStudentToFile(string name, string filePath = "students_data.txt")
+    {
+    }
 
+    public void AppendGradeToFile(string studentName, string course, GradeType grade, string filePath = "grades_data.txt")
+    {
+    }
+
+    public void ClearDataFiles(string filePath)
+    {
+    }
+
+    public void BackupDataFiles(string filePath)
+    {
+    }
+
+    public void FindStudentInFile(string studentName, string filePathStudents = "students_data.txt", string filePathGrades = "grades_data.txt")
+    {
     }
 }
 
@@ -315,6 +432,21 @@ class Program
                 case "10":
                     gradeSystem.GradeStats();
                     break;
+                case "11":
+                    gradeSystem.SaveGradesToFile();
+                    break;
+                case "12":
+                    gradeSystem.LoadGradesFromFile();
+                    break;
+                case "13":
+                    gradeSystem.SaveStudentsToFile();
+                    break;
+                case "14":
+                    gradeSystem.LoadStudentsFromFile();
+                    break;
+                case "15":
+                    gradeSystem.SaveReportToFile();
+                    break;
                 case "0":
                     return;
                 default:
@@ -335,7 +467,12 @@ class Program
             Console.WriteLine("7. Переименовать студента");
             Console.WriteLine("8. Удалить курс");
             Console.WriteLine("9. Показать лучших и худших студентов");
-            Console.WriteLine("9. Динамическая статистика оценок");
+            Console.WriteLine("10. Динамическая статистика оценок");
+            Console.WriteLine("11. Сохранить оценки в файл");
+            Console.WriteLine("12. Загрузить оценки из файла");
+            Console.WriteLine("13. Сохранить студентов в файл");
+            Console.WriteLine("14. Загрузить студентов из файла");
+            Console.WriteLine("15. Сохранить отчёт по студентам в файл");
             Console.WriteLine("0. Выход");
             Console.Write("Выберите опцию: "); 
         }
